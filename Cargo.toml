@@ -1,0 +1,18 @@
+[package]
+name = "maturski"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = "0.20"
+rfd = "0.10"
+serde = { version = "1", features = ["derive"] }
+bson = "2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
