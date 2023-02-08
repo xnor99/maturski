@@ -24,6 +24,8 @@ fn main() {
                 show_grid: false,
                 stoke_thickness: 1.0,
                 onion_skin: false,
+                onion_opacity: 0.05,
+                display_color: [0xFF, 0x00, 0x00],
             })
         }),
     );
@@ -52,6 +54,8 @@ struct MainWindow {
     show_grid: bool,
     stoke_thickness: f32,
     onion_skin: bool,
+    onion_opacity: f32,
+    display_color: [u8; 3],
 }
 
 impl App for MainWindow {
@@ -67,6 +71,10 @@ impl App for MainWindow {
             ui.horizontal(|ui| {
                 self.show_painter(ui);
                 ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Display color:");
+                        ui.color_edit_button_srgb(&mut self.display_color);
+                    });
                     ui.add(
                         DragValue::new(&mut self.current_frame)
                             .clamp_range(1..=self.project.image_sequence.get_frame_count())
@@ -220,7 +228,12 @@ impl MainWindow {
                         painter.rect_filled(
                             Rect::from_min_size(position_scaled, scale_vec2),
                             Rounding::none(),
-                            Color32::RED.linear_multiply(0.05),
+                            Color32::from_rgb(
+                                self.display_color[0],
+                                self.display_color[1],
+                                self.display_color[2],
+                            )
+                            .linear_multiply(self.onion_opacity),
                         );
                     });
                 }
@@ -239,7 +252,11 @@ impl MainWindow {
                 painter.rect_filled(
                     Rect::from_min_size(position_scaled, scale_vec2),
                     Rounding::none(),
-                    Color32::RED,
+                    Color32::from_rgb(
+                        self.display_color[0],
+                        self.display_color[1],
+                        self.display_color[2],
+                    ),
                 );
             });
         }
@@ -309,6 +326,12 @@ impl MainWindow {
                             .prefix("Stroke: "),
                     );
                     ui.checkbox(&mut self.onion_skin, "Onion skin");
+                    ui.add(
+                        DragValue::new(&mut self.onion_opacity)
+                            .clamp_range(0.0..=1.0)
+                            .speed(0.05)
+                            .prefix("Onion skin opacity: "),
+                    );
                 });
             });
         });
