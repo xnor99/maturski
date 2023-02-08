@@ -23,6 +23,7 @@ fn main() {
                 current_frame: 1,
                 show_grid: false,
                 stoke_thickness: 1.0,
+                onion_skin: false,
             })
         }),
     );
@@ -50,6 +51,7 @@ struct MainWindow {
     current_frame: usize,
     show_grid: bool,
     stoke_thickness: f32,
+    onion_skin: bool,
 }
 
 impl App for MainWindow {
@@ -207,6 +209,23 @@ impl MainWindow {
             Rounding::none(),
             Color32::BLACK,
         );
+        if self.onion_skin {
+            if let Some(frame_idx) = self.current_frame.checked_sub(2) {
+                if let Some(pixels) = self.project.image_sequence.iter_pixels(frame_idx) {
+                    let scale = usize::from(self.scale);
+                    let scale_vec2 = Vec2::new(self.scale.into(), self.scale.into());
+                    pixels.filter(|&(_, _, pixel)| pixel).for_each(|(x, y, _)| {
+                        let position_scaled = Pos2::new((x * scale) as f32, (y * scale) as f32)
+                            + painter_top_left.to_vec2();
+                        painter.rect_filled(
+                            Rect::from_min_size(position_scaled, scale_vec2),
+                            Rounding::none(),
+                            Color32::RED.linear_multiply(0.05),
+                        );
+                    });
+                }
+            }
+        }
         if let Some(pixels) = self
             .project
             .image_sequence
@@ -289,6 +308,7 @@ impl MainWindow {
                             .speed(0.1)
                             .prefix("Stroke: "),
                     );
+                    ui.checkbox(&mut self.onion_skin, "Onion skin");
                 });
             });
         });
