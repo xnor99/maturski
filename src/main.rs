@@ -1,7 +1,7 @@
 use crate::image_matrix::ImageSequence;
 use eframe::egui::{
     menu, Button, CentralPanel, Color32, Context, DragValue, Key, KeyboardShortcut, Modifiers,
-    PointerButton, Pos2, Rect, Rounding, Sense, Stroke, TopBottomPanel, Ui, Vec2,
+    Painter, PointerButton, Pos2, Rect, Rounding, Sense, Stroke, TopBottomPanel, Ui, Vec2,
 };
 use eframe::{App, Frame, NativeOptions};
 use rfd::{FileDialog, MessageDialog};
@@ -87,22 +87,34 @@ impl App for MainWindow {
                     ui.horizontal(|ui| {
                         if ui.button("Add frame").clicked() {
                             self.project.image_sequence.add_frame();
-                            self.current_frame += self.project.image_sequence.get_frame_count();
+                            self.current_frame = self.project.image_sequence.get_frame_count();
                         }
                         if ui.button("Insert frame").clicked() {
                             self.project
                                 .image_sequence
                                 .insert_frame(self.current_frame - 1);
                         }
-                    });
-                    if ui.button("Delete frame").clicked() {
-                        self.project
-                            .image_sequence
-                            .delete_frame(self.current_frame - 1);
-                        if self.project.image_sequence.get_frame_count() == 0 {
-                            self.project.image_sequence.add_frame();
+                        if ui.button("Duplicate frame").clicked() {
+                            self.project
+                                .image_sequence
+                                .duplicate_frame(self.current_frame - 1);
                         }
-                    }
+                    });
+                    ui.horizontal(|ui| {
+                        if ui.button("Delete frame").clicked() {
+                            self.project
+                                .image_sequence
+                                .delete_frame(self.current_frame - 1);
+                            if self.project.image_sequence.get_frame_count() == 0 {
+                                self.project.image_sequence.add_frame();
+                            }
+                        }
+                        if ui.button("Clear frame").clicked() {
+                            self.project
+                                .image_sequence
+                                .clear_frame(self.current_frame - 1);
+                        }
+                    });
                 });
             });
         });
@@ -190,6 +202,28 @@ impl MainWindow {
         }
     }
 
+    fn render_frame(
+        &self,
+        painter: &Painter,
+        painter_top_left: Pos2,
+        frame_idx: usize,
+        color: Color32,
+    ) {
+        if let Some(pixels) = self.project.image_sequence.iter_pixels(frame_idx) {
+            let scale = usize::from(self.scale);
+            let scale_vec2 = Vec2::new(self.scale.into(), self.scale.into());
+            pixels.filter(|&(_, _, pixel)| pixel).for_each(|(x, y, _)| {
+                let position_scaled =
+                    Pos2::new((x * scale) as f32, (y * scale) as f32) + painter_top_left.to_vec2();
+                painter.rect_filled(
+                    Rect::from_min_size(position_scaled, scale_vec2),
+                    Rounding::none(),
+                    color,
+                );
+            });
+        }
+    }
+
     fn show_painter(&mut self, ui: &mut Ui) {
         let [width_pixels, height_pixels] = self.project.image_sequence.get_dimensions_pixels();
         let dimensions_scaled =
@@ -217,49 +251,22 @@ impl MainWindow {
             Rounding::none(),
             Color32::BLACK,
         );
+        let color = Color32::from_rgb(
+            self.display_color[0],
+            self.display_color[1],
+            self.display_color[2],
+        );
         if self.onion_skin {
             if let Some(frame_idx) = self.current_frame.checked_sub(2) {
-                if let Some(pixels) = self.project.image_sequence.iter_pixels(frame_idx) {
-                    let scale = usize::from(self.scale);
-                    let scale_vec2 = Vec2::new(self.scale.into(), self.scale.into());
-                    pixels.filter(|&(_, _, pixel)| pixel).for_each(|(x, y, _)| {
-                        let position_scaled = Pos2::new((x * scale) as f32, (y * scale) as f32)
-                            + painter_top_left.to_vec2();
-                        painter.rect_filled(
-                            Rect::from_min_size(position_scaled, scale_vec2),
-                            Rounding::none(),
-                            Color32::from_rgb(
-                                self.display_color[0],
-                                self.display_color[1],
-                                self.display_color[2],
-                            )
-                            .linear_multiply(self.onion_opacity),
-                        );
-                    });
-                }
+                self.render_frame(
+                    &painter,
+                    painter_top_left,
+                    frame_idx,
+                    color.linear_multiply(self.onion_opacity),
+                );
             }
         }
-        if let Some(pixels) = self
-            .project
-            .image_sequence
-            .iter_pixels(self.current_frame - 1)
-        {
-            let scale = usize::from(self.scale);
-            let scale_vec2 = Vec2::new(self.scale.into(), self.scale.into());
-            pixels.filter(|&(_, _, pixel)| pixel).for_each(|(x, y, _)| {
-                let position_scaled =
-                    Pos2::new((x * scale) as f32, (y * scale) as f32) + painter_top_left.to_vec2();
-                painter.rect_filled(
-                    Rect::from_min_size(position_scaled, scale_vec2),
-                    Rounding::none(),
-                    Color32::from_rgb(
-                        self.display_color[0],
-                        self.display_color[1],
-                        self.display_color[2],
-                    ),
-                );
-            });
-        }
+        self.render_frame(&painter, painter_top_left, self.current_frame - 1, color);
         if self.show_grid {
             let [width_matrices, height_matrices] =
                 self.project.image_sequence.get_dimensions_pixels();

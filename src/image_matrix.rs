@@ -99,8 +99,18 @@ impl ImageSequence {
         );
     }
 
+    pub fn duplicate_frame(&mut self, idx: usize) {
+        self.bitmaps.insert(idx + 1, self.bitmaps[idx].clone());
+    }
+
     pub fn delete_frame(&mut self, idx: usize) {
         self.bitmaps.remove(idx);
+    }
+
+    pub fn clear_frame(&mut self, idx: usize) {
+        self.bitmaps[idx]
+            .iter_mut()
+            .for_each(|pixel| *pixel = false);
     }
 }
 
