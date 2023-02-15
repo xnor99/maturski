@@ -10,9 +10,12 @@ pub struct ImageSequence {
 }
 
 impl ImageSequence {
-    pub fn new(width: u8, height: u8, frames: usize) -> Self {
+    pub fn new(width: u8, height: u8) -> Self {
         Self {
-            bitmaps: vec![vec![false; usize::from(width) * 8 * usize::from(height) * 8]; frames],
+            bitmaps: vec![vec![
+                false;
+                usize::from(width) * 8 * usize::from(height) * 8
+            ]],
             width,
             height,
         }

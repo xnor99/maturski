@@ -1,7 +1,7 @@
 use crate::image_matrix::ImageSequence;
 use eframe::egui::{
     menu, Button, CentralPanel, Color32, Context, DragValue, Key, KeyboardShortcut, Modifiers,
-    Painter, PointerButton, Pos2, Rect, Rounding, Sense, Stroke, TopBottomPanel, Ui, Vec2,
+    Painter, PointerButton, Pos2, Rect, Rounding, Sense, Stroke, TopBottomPanel, Ui, Vec2, Window,
 };
 use eframe::{App, Frame, NativeOptions};
 use rfd::{FileDialog, MessageDialog};
@@ -17,7 +17,10 @@ fn main() {
         NativeOptions::default(),
         Box::new(|_cc| {
             Box::new(MainWindow {
-                project: Project::default(),
+                project: Project {
+                    image_sequence: ImageSequence::new(4, 4),
+                    frame_rate: 10,
+                },
                 current_file: None,
                 scale: 1,
                 current_frame: 1,
@@ -26,6 +29,12 @@ fn main() {
                 onion_skin: false,
                 onion_opacity: 0.05,
                 display_color: [0xFF, 0x00, 0x00],
+                new_file_dialog: NewFileDialog {
+                    show: false,
+                    width: 4,
+                    height: 4,
+                    frame_rate: 10,
+                },
             })
         }),
     );
@@ -37,13 +46,11 @@ struct Project {
     frame_rate: u16,
 }
 
-impl Default for Project {
-    fn default() -> Self {
-        Self {
-            image_sequence: ImageSequence::new(4, 4, 1),
-            frame_rate: 10,
-        }
-    }
+struct NewFileDialog {
+    show: bool,
+    width: u8,
+    height: u8,
+    frame_rate: u16,
 }
 
 struct MainWindow {
@@ -56,6 +63,7 @@ struct MainWindow {
     onion_skin: bool,
     onion_opacity: f32,
     display_color: [u8; 3],
+    new_file_dialog: NewFileDialog,
 }
 
 impl App for MainWindow {
@@ -117,6 +125,37 @@ impl App for MainWindow {
                     });
                 });
             });
+            Window::new("New")
+                .open(&mut self.new_file_dialog.show)
+                .show(ctx, |ui| {
+                    ui.label("Width:");
+                    ui.horizontal(|ui| {
+                        ui.add(DragValue::new(&mut self.new_file_dialog.width).clamp_range(1..=8));
+                        ui.label(format!(" × 8 = {}", self.new_file_dialog.width * 8));
+                    });
+                    ui.label("Height:");
+                    ui.horizontal(|ui| {
+                        ui.add(DragValue::new(&mut self.new_file_dialog.height).clamp_range(1..=8));
+                        ui.label(format!(" × 8 = {}", self.new_file_dialog.height * 8));
+                    });
+                    ui.label("Frame rate:");
+                    ui.add(
+                        DragValue::new(&mut self.new_file_dialog.frame_rate).clamp_range(1..=60),
+                    );
+                    ui.vertical_centered_justified(|ui| {
+                        if ui.button("Confirm").clicked() {
+                            self.current_file = None;
+                            self.current_frame = 1;
+                            self.project = Project {
+                                image_sequence: ImageSequence::new(
+                                    self.new_file_dialog.width,
+                                    self.new_file_dialog.height,
+                                ),
+                                frame_rate: self.new_file_dialog.frame_rate,
+                            };
+                        }
+                    });
+                });
         });
     }
 }
@@ -292,6 +331,9 @@ impl MainWindow {
         TopBottomPanel::top("menu_panel").show(ctx, |ui| {
             menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("New file").clicked() {
+                        self.new_file_dialog.show = true;
+                    }
                     if ui
                         .add(
                             Button::new("Open file")
@@ -320,7 +362,7 @@ impl MainWindow {
                 ui.menu_button("View", |ui| {
                     ui.add(
                         DragValue::new(&mut self.scale)
-                            .clamp_range(1..=16)
+                            .clamp_range(1..=64)
                             .prefix("Scale: ")
                             .suffix('x'),
                     );
