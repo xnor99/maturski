@@ -75,14 +75,8 @@ impl ImageSequence {
         )
     }
 
-    pub fn get_bytes(&self, frame: usize) -> Option<Vec<u8>> {
-        Some(
-            self.bitmaps
-                .get(frame)?
-                .chunks_exact(8)
-                .map(bits_to_byte)
-                .collect(),
-        )
+    pub fn get_bytes(&self, frame: usize) -> impl Iterator<Item = u8> + '_ {
+        self.bitmaps[frame].chunks_exact(8).map(bits_to_byte)
     }
 
     pub fn add_frame(&mut self) {

@@ -1,7 +1,8 @@
 use crate::image_matrix::ImageSequence;
 use eframe::egui::{
     menu, Button, CentralPanel, Color32, Context, DragValue, Key, KeyboardShortcut, Modifiers,
-    Painter, PointerButton, Pos2, Rect, Rounding, Sense, Stroke, TopBottomPanel, Ui, Vec2, Window,
+    Painter, PointerButton, Pos2, Rect, Rounding, ScrollArea, Sense, Stroke, TextEdit,
+    TopBottomPanel, Ui, Vec2, Window,
 };
 use eframe::{App, Frame, NativeOptions};
 use rfd::{FileDialog, MessageDialog};
@@ -161,6 +162,30 @@ impl App for MainWindow {
                         }
                     });
                 });
+            let mut first = true;
+            let mut code = format!(
+                "const byte bytes[] = {{{}}};",
+                self.project
+                    .image_sequence
+                    .get_bytes(self.current_frame - 1)
+                    .fold(String::default(), |previous, current| {
+                        if first {
+                            first = false;
+                            format!("{current:#04X}")
+                        } else {
+                            format!("{previous}, {current:#04X}")
+                        }
+                    })
+            );
+            ui.collapsing("Code", |ui| {
+                ScrollArea::vertical().show(ui, |ui| {
+                    ui.add(
+                        TextEdit::multiline(&mut code)
+                            .code_editor()
+                            .desired_width(f32::INFINITY),
+                    );
+                });
+            });
         });
     }
 }
@@ -338,6 +363,7 @@ impl MainWindow {
                 ui.menu_button("File", |ui| {
                     if ui.button("New file").clicked() {
                         self.new_file_dialog.show = true;
+                        ui.close_menu();
                     }
                     if ui
                         .add(
