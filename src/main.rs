@@ -121,6 +121,10 @@ impl App for MainWindow {
                                 .delete_frame(self.current_frame - 1);
                             if self.project.image_sequence.get_frame_count() == 0 {
                                 self.project.image_sequence.add_frame();
+                            } else if self.project.image_sequence.get_frame_count()
+                                == self.current_frame - 1
+                            {
+                                self.current_frame -= 1;
                             }
                         }
                         if ui.button("Clear frame").clicked() {
