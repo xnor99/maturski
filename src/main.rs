@@ -37,7 +37,8 @@ fn main() {
                 },
             })
         }),
-    );
+    )
+    .unwrap();
 }
 
 #[derive(Serialize, Deserialize)]
@@ -68,12 +69,16 @@ struct MainWindow {
 
 impl App for MainWindow {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
-        if ctx.input_mut().consume_shortcut(&Self::OPEN_SHORTCUT) {
-            self.open_file();
-        }
-        if ctx.input_mut().consume_shortcut(&Self::SAVE_SHORTCUT) {
-            self.save_file();
-        }
+        ctx.input_mut(|input_state| {
+            if input_state.consume_shortcut(&Self::OPEN_SHORTCUT) {
+                self.open_file();
+            }
+        });
+        ctx.input_mut(|input_state| {
+            if input_state.consume_shortcut(&Self::SAVE_SHORTCUT) {
+                self.save_file();
+            }
+        });
         self.show_menu(ctx);
         CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
