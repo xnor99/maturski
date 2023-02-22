@@ -8,7 +8,9 @@ use eframe::{App, Frame, NativeOptions};
 use rfd::{FileDialog, MessageDialog};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 mod image_matrix;
 
@@ -37,6 +39,8 @@ fn main() {
                     frame_rate: 10,
                 },
                 code_display: CodeDisplay::SingleFrame,
+                play: false,
+                last_frame_delta: Instant::now(),
             })
         }),
     )
@@ -68,6 +72,8 @@ struct MainWindow {
     display_color: [u8; 3],
     new_file_dialog: NewFileDialog,
     code_display: CodeDisplay,
+    play: bool,
+    last_frame_delta: Instant,
 }
 
 #[derive(PartialEq)]
@@ -78,6 +84,12 @@ enum CodeDisplay {
 
 impl App for MainWindow {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
+        let frame_time = Duration::from_nanos(1000000000 / u64::from(self.project.frame_rate));
+        if self.play && self.last_frame_delta.elapsed() >= frame_time {
+            self.last_frame_delta = Instant::now();
+            self.current_frame =
+                self.current_frame % self.project.image_sequence.get_frame_count() + 1;
+        }
         ctx.input_mut(|input_state| {
             if input_state.consume_shortcut(&Self::OPEN_SHORTCUT) {
                 self.open_file();
@@ -97,15 +109,21 @@ impl App for MainWindow {
                         ui.label("Display color:");
                         ui.color_edit_button_srgb(&mut self.display_color);
                     });
-                    ui.add(
-                        DragValue::new(&mut self.current_frame)
-                            .clamp_range(1..=self.project.image_sequence.get_frame_count())
-                            .prefix("Frame: ")
-                            .suffix(format!(
-                                "/{}",
-                                self.project.image_sequence.get_frame_count()
-                            )),
-                    );
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            DragValue::new(&mut self.current_frame)
+                                .clamp_range(1..=self.project.image_sequence.get_frame_count())
+                                .prefix("Frame: ")
+                                .suffix(format!(
+                                    "/{}",
+                                    self.project.image_sequence.get_frame_count()
+                                )),
+                        );
+                        if ui.button(if self.play { "Stop" } else { "Play" }).clicked() {
+                            self.last_frame_delta = Instant::now();
+                            self.play = !self.play;
+                        }
+                    });
                     ui.horizontal(|ui| {
                         if ui.button("Add frame").clicked() {
                             self.project.image_sequence.add_frame();
@@ -158,7 +176,8 @@ impl App for MainWindow {
                     });
                     ui.label("Frame rate:");
                     ui.add(
-                        DragValue::new(&mut self.new_file_dialog.frame_rate).clamp_range(1..=60),
+                        DragValue::new(&mut self.new_file_dialog.frame_rate)
+                            .clamp_range(Self::FPS_RANGE),
                     );
                     ui.vertical_centered_justified(|ui| {
                         if ui.button("Confirm").clicked() {
@@ -198,6 +217,9 @@ impl App for MainWindow {
                 });
             });
         });
+        if self.play {
+            ctx.request_repaint();
+        }
     }
 }
 
@@ -211,6 +233,8 @@ impl MainWindow {
         modifiers: Modifiers::CTRL,
         key: Key::S,
     };
+
+    const FPS_RANGE: RangeInclusive<u16> = 1..=60;
 
     fn open_file(&mut self) {
         let Some(path) = FileDialog::new()
@@ -422,6 +446,14 @@ impl MainWindow {
                             .clamp_range(0.0..=1.0)
                             .speed(0.05)
                             .prefix("Onion skin opacity: "),
+                    );
+                });
+                ui.menu_button("Animation", |ui| {
+                    ui.add(
+                        DragValue::new(&mut self.project.frame_rate)
+                            .clamp_range(Self::FPS_RANGE)
+                            .prefix("Frame rate: ")
+                            .suffix(" f/s"),
                     );
                 });
             });
