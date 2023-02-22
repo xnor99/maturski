@@ -109,6 +109,43 @@ impl ImageSequence {
             .iter_mut()
             .for_each(|pixel| *pixel = false);
     }
+
+    pub fn get_frame_as_string(&self, idx: usize) -> String {
+        let mut first = true;
+        format!(
+            "{{{}}}",
+            self.get_bytes(idx)
+                .fold(String::default(), |previous, current| {
+                    if first {
+                        first = false;
+                        format!("{current:#04X}")
+                    } else {
+                        format!("{previous}, {current:#04X}")
+                    }
+                })
+        )
+    }
+
+    pub fn get_sequence_as_string(&self) -> String {
+        let mut first = true;
+        format!(
+            "{{{}}}",
+            self.bitmaps
+                .iter()
+                .enumerate()
+                .map(|(i, _)| self.get_frame_as_string(i))
+                .fold(String::default(), |mut previous, current| {
+                    if first {
+                        first = false;
+                        current
+                    } else {
+                        previous += ", ";
+                        previous += &current;
+                        previous
+                    }
+                })
+        )
+    }
 }
 
 impl Index<[usize; 3]> for ImageSequence {

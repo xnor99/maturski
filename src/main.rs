@@ -36,6 +36,7 @@ fn main() {
                     height: 4,
                     frame_rate: 10,
                 },
+                code_display: CodeDisplay::SingleFrame,
             })
         }),
     )
@@ -66,6 +67,13 @@ struct MainWindow {
     onion_opacity: f32,
     display_color: [u8; 3],
     new_file_dialog: NewFileDialog,
+    code_display: CodeDisplay,
+}
+
+#[derive(PartialEq)]
+enum CodeDisplay {
+    SingleFrame,
+    AllFrames,
 }
 
 impl App for MainWindow {
@@ -166,27 +174,26 @@ impl App for MainWindow {
                         }
                     });
                 });
-            let mut first = true;
-            let mut code = format!(
-                "const byte bytes[] = {{{}}};",
-                self.project
-                    .image_sequence
-                    .get_bytes(self.current_frame - 1)
-                    .fold(String::default(), |previous, current| {
-                        if first {
-                            first = false;
-                            format!("{current:#04X}")
-                        } else {
-                            format!("{previous}, {current:#04X}")
-                        }
-                    })
-            );
             ui.collapsing("Code", |ui| {
+                ui.radio_value(
+                    &mut self.code_display,
+                    CodeDisplay::SingleFrame,
+                    "Current frame",
+                );
+                ui.radio_value(&mut self.code_display, CodeDisplay::AllFrames, "All frames");
                 ScrollArea::vertical().show(ui, |ui| {
                     ui.add(
-                        TextEdit::multiline(&mut code)
-                            .code_editor()
-                            .desired_width(f32::INFINITY),
+                        TextEdit::multiline(&mut match self.code_display {
+                            CodeDisplay::SingleFrame => self
+                                .project
+                                .image_sequence
+                                .get_frame_as_string(self.current_frame - 1),
+                            CodeDisplay::AllFrames => {
+                                self.project.image_sequence.get_sequence_as_string()
+                            }
+                        })
+                        .code_editor()
+                        .desired_width(f32::INFINITY),
                     );
                 });
             });
