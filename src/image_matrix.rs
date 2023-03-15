@@ -1,6 +1,7 @@
+use crate::Direction;
 use eframe::egui::Vec2;
 use serde::{Deserialize, Serialize};
-use std::ops::{Index, IndexMut};
+use std::ops::{Add, Index, IndexMut, Mul};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ImageSequence {
@@ -146,6 +147,43 @@ impl ImageSequence {
                 })
         )
     }
+
+    pub fn slide_in(&mut self, frame: usize, direction: Direction) {
+        let dimension = match direction {
+            Direction::Top | Direction::Bottom => self.height,
+            Direction::Left | Direction::Right => self.width,
+        } * 8;
+
+        let vector = match direction {
+            Direction::Top => IVec::new(0, -1),
+            Direction::Left => IVec::new(-1, 0),
+            Direction::Bottom => IVec::new(0, 1),
+            Direction::Right => IVec::new(1, 0),
+        };
+
+        (0..dimension - 1).for_each(|_| self.duplicate_frame(frame));
+
+        let [width, height] = [i16::from(self.width) * 8, i16::from(self.height) * 8];
+        let current_frame = self.get_frame(frame).unwrap().to_owned();
+        (0..dimension - 1).rev().for_each(|i| {
+            let scaled_vector = vector * (i16::from(dimension) - i16::from(i) - 1);
+            let frame_number = frame + usize::from(i);
+            self.clear_frame(frame_number);
+            (0..width * height)
+                .map(|i| IVec::new(i % width, i / width))
+                .for_each(|current_pixel| {
+                    let IVec { x: new_x, y: new_y } = current_pixel + scaled_vector;
+                    if (0..width).contains(&new_x) && (0..height).contains(&new_y) {
+                        self[[
+                            new_x.try_into().unwrap(),
+                            new_y.try_into().unwrap(),
+                            frame_number,
+                        ]] = current_frame
+                            [usize::try_from(current_pixel.y * width + current_pixel.x).unwrap()];
+                    }
+                });
+        });
+    }
 }
 
 impl Index<[usize; 3]> for ImageSequence {
@@ -164,4 +202,38 @@ impl IndexMut<[usize; 3]> for ImageSequence {
 
 fn bits_to_byte(bits: &[bool]) -> u8 {
     bits.iter().fold(0, |byte, &bit| byte << 1 | bit as u8)
+}
+
+#[derive(Clone, Copy)]
+struct IVec {
+    x: i16,
+    y: i16,
+}
+
+impl IVec {
+    fn new(x: i16, y: i16) -> Self {
+        Self { x, y }
+    }
+}
+
+impl Mul<i16> for IVec {
+    type Output = IVec;
+
+    fn mul(self, rhs: i16) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+impl Add<IVec> for IVec {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
 }

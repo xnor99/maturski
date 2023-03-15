@@ -7,6 +7,7 @@ use eframe::egui::{
 use eframe::{App, Frame, NativeOptions};
 use rfd::{FileDialog, MessageDialog};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -219,6 +220,67 @@ impl App for MainWindow {
         });
         if self.play {
             ctx.request_repaint();
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Direction {
+    Top,
+    Left,
+    Bottom,
+    Right,
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Direction::Top => "Top",
+                Direction::Left => "Left",
+                Direction::Bottom => "Bottom",
+                Direction::Right => "Right",
+            }
+        )
+    }
+}
+
+struct DirectionIterator {
+    next: Option<Direction>,
+}
+
+impl Default for DirectionIterator {
+    fn default() -> Self {
+        Self {
+            next: Some(Direction::Top),
+        }
+    }
+}
+
+impl Iterator for DirectionIterator {
+    type Item = Direction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next {
+            Some(Direction::Top) => {
+                self.next = Some(Direction::Left);
+                Some(Direction::Top)
+            }
+            Some(Direction::Left) => {
+                self.next = Some(Direction::Bottom);
+                Some(Direction::Left)
+            }
+            Some(Direction::Bottom) => {
+                self.next = Some(Direction::Right);
+                Some(Direction::Bottom)
+            }
+            Some(Direction::Right) => {
+                self.next = None;
+                Some(Direction::Right)
+            }
+            None => None,
         }
     }
 }
@@ -455,6 +517,16 @@ impl MainWindow {
                             .prefix("Frame rate: ")
                             .suffix(" f/s"),
                     );
+                    ui.separator();
+                    ui.menu_button("Slide in", |ui| {
+                        DirectionIterator::default().for_each(|direction| {
+                            if ui.button(direction.to_string()).clicked() {
+                                self.project
+                                    .image_sequence
+                                    .slide_in(self.current_frame - 1, direction);
+                            }
+                        });
+                    });
                 });
             });
         });
