@@ -247,41 +247,9 @@ impl Display for Direction {
     }
 }
 
-struct DirectionIterator {
-    next: Option<Direction>,
-}
-
-impl Default for DirectionIterator {
-    fn default() -> Self {
-        Self {
-            next: Some(Direction::Top),
-        }
-    }
-}
-
-impl Iterator for DirectionIterator {
-    type Item = Direction;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next {
-            Some(Direction::Top) => {
-                self.next = Some(Direction::Left);
-                Some(Direction::Top)
-            }
-            Some(Direction::Left) => {
-                self.next = Some(Direction::Bottom);
-                Some(Direction::Left)
-            }
-            Some(Direction::Bottom) => {
-                self.next = Some(Direction::Right);
-                Some(Direction::Bottom)
-            }
-            Some(Direction::Right) => {
-                self.next = None;
-                Some(Direction::Right)
-            }
-            None => None,
-        }
+impl Direction {
+    fn iter() -> impl ExactSizeIterator<Item = Self> {
+        [Self::Top, Self::Left, Self::Bottom, Self::Right].into_iter()
     }
 }
 
@@ -519,11 +487,12 @@ impl MainWindow {
                     );
                     ui.separator();
                     ui.menu_button("Slide in", |ui| {
-                        DirectionIterator::default().for_each(|direction| {
+                        Direction::iter().for_each(|direction| {
                             if ui.button(direction.to_string()).clicked() {
                                 self.project
                                     .image_sequence
                                     .slide_in(self.current_frame - 1, direction);
+                                ui.close_menu();
                             }
                         });
                     });
