@@ -1,4 +1,4 @@
-use crate::image_matrix::ImageSequence;
+use crate::image_matrix::{ImageSequence, SlideAnimation};
 use eframe::egui::{
     menu, Button, CentralPanel, Color32, Context, DragValue, Key, KeyboardShortcut, Modifiers,
     Painter, PointerButton, Pos2, Rect, Rounding, ScrollArea, Sense, Stroke, TextEdit,
@@ -486,14 +486,18 @@ impl MainWindow {
                             .suffix(" f/s"),
                     );
                     ui.separator();
-                    ui.menu_button("Slide in", |ui| {
-                        Direction::iter().for_each(|direction| {
-                            if ui.button(direction.to_string()).clicked() {
-                                self.project
-                                    .image_sequence
-                                    .slide_in(self.current_frame - 1, direction);
-                                ui.close_menu();
-                            }
+                    SlideAnimation::iter().for_each(|slide_animation| {
+                        ui.menu_button(slide_animation.to_string(), |ui| {
+                            Direction::iter().for_each(|direction| {
+                                if ui.button(direction.to_string()).clicked() {
+                                    self.project.image_sequence.slide(
+                                        self.current_frame - 1,
+                                        direction,
+                                        slide_animation,
+                                    );
+                                    ui.close_menu();
+                                }
+                            });
                         });
                     });
                 });

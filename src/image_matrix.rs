@@ -1,6 +1,7 @@
 use crate::Direction;
 use eframe::egui::Vec2;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Index, IndexMut, Mul};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -148,7 +149,7 @@ impl ImageSequence {
         )
     }
 
-    pub fn slide_in(&mut self, frame: usize, direction: Direction) {
+    pub fn slide(&mut self, frame: usize, direction: Direction, animation: SlideAnimation) {
         let dimension = match direction {
             Direction::Top | Direction::Bottom => self.height,
             Direction::Left | Direction::Right => self.width,
@@ -165,8 +166,12 @@ impl ImageSequence {
 
         let [width, height] = [i16::from(self.width) * 8, i16::from(self.height) * 8];
         let current_frame = self.get_frame(frame).unwrap().to_owned();
-        (0..dimension - 1).rev().for_each(|i| {
-            let scaled_vector = vector * (i16::from(dimension) - i16::from(i) - 1);
+        (0..dimension).rev().for_each(|i| {
+            let scaled_vector = vector
+                * match animation {
+                    SlideAnimation::SlideIn => i16::from(dimension) - i16::from(i) - 1,
+                    SlideAnimation::SlideOut => i16::from(i),
+                };
             let frame_number = frame + usize::from(i);
             self.clear_frame(frame_number);
             (0..width * height)
@@ -235,5 +240,30 @@ impl Add<IVec> for IVec {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum SlideAnimation {
+    SlideIn,
+    SlideOut,
+}
+
+impl Display for SlideAnimation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SlideAnimation::SlideIn => "Slide in",
+                SlideAnimation::SlideOut => "Slide out",
+            }
+        )
+    }
+}
+
+impl SlideAnimation {
+    pub fn iter() -> impl ExactSizeIterator<Item = Self> {
+        [Self::SlideIn, Self::SlideOut].into_iter()
     }
 }
