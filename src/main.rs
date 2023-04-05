@@ -145,6 +145,21 @@ impl App for MainWindow {
                         }
                     });
                     ui.horizontal(|ui| {
+                        if ui.button("Move up").clicked()
+                            && self.project.image_sequence.move_up(self.current_frame - 1)
+                        {
+                            self.current_frame -= 1;
+                        }
+                        if ui.button("Move down").clicked()
+                            && self
+                                .project
+                                .image_sequence
+                                .move_down(self.current_frame - 1)
+                        {
+                            self.current_frame += 1;
+                        }
+                    });
+                    ui.horizontal(|ui| {
                         if ui.button("Delete frame").clicked() {
                             self.project
                                 .image_sequence

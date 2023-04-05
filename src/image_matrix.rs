@@ -106,6 +106,24 @@ impl ImageSequence {
         self.bitmaps.insert(idx + 1, self.bitmaps[idx].clone());
     }
 
+    pub fn move_up(&mut self, idx: usize) -> bool {
+        if idx != 0 {
+            self.bitmaps.swap(idx, idx - 1);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_down(&mut self, idx: usize) -> bool {
+        if idx != self.bitmaps.len() - 1 {
+            self.bitmaps.swap(idx, idx + 1);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn delete_frame(&mut self, idx: usize) {
         self.bitmaps.remove(idx);
     }
