@@ -5,6 +5,9 @@ use eframe::egui::{
     TopBottomPanel, Ui, Vec2, Window,
 };
 use eframe::{App, Frame, NativeOptions};
+use image::imageops;
+use image::imageops::{BiLevel, FilterType};
+use image::io::Reader;
 use rfd::{FileDialog, MessageDialog};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
@@ -454,6 +457,11 @@ impl MainWindow {
                         self.save_file_as();
                         ui.close_menu();
                     }
+                    ui.separator();
+                    if ui.button("Import image").clicked() {
+                        self.import_image();
+                        ui.close_menu();
+                    }
                 });
                 ui.menu_button("View", |ui| {
                     ui.add(
@@ -503,5 +511,48 @@ impl MainWindow {
                 });
             });
         });
+    }
+
+    fn import_image(&mut self) {
+        let Some(path) = FileDialog::new()
+            .pick_file() else {
+            return;
+        };
+
+        let Ok(Ok(image)) = Reader::open(&path).and_then(|reader| reader.with_guessed_format()).map(|reader| reader.decode()) else {
+            MessageDialog::new()
+                .set_description(&format!(
+                    "Could not read/decode {}",
+                    path.display()
+                ))
+                .show();
+            return;
+        };
+
+        let [width, height] = self.project.image_sequence.get_dimensions_pixels();
+        let scaled_image = image.resize_exact(
+            width.try_into().unwrap(),
+            height.try_into().unwrap(),
+            FilterType::Lanczos3,
+        );
+        drop(image);
+
+        let mut gray_image = scaled_image.into_luma8();
+        imageops::dither(&mut gray_image, &BiLevel);
+
+        self.project
+            .image_sequence
+            .insert_frame(self.current_frame - 1);
+        gray_image
+            .iter()
+            .zip(
+                self.project
+                    .image_sequence
+                    .iter_pixels_mut(self.current_frame - 1)
+                    .unwrap(),
+            )
+            .for_each(|(&color, pixel)| {
+                *pixel = color != 0;
+            });
     }
 }

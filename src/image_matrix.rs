@@ -27,10 +27,6 @@ impl ImageSequence {
         self.bitmaps.len()
     }
 
-    pub fn get_dimensions(&self) -> [u8; 2] {
-        [self.width, self.height]
-    }
-
     pub fn get_dimensions_pixels(&self) -> [usize; 2] {
         [usize::from(self.width) * 8, usize::from(self.height) * 8]
     }
@@ -62,6 +58,10 @@ impl ImageSequence {
         self.bitmaps.get(frame).map(|vec| vec.as_ref())
     }
 
+    pub fn get_frame_mut(&mut self, frame: usize) -> Option<&mut [bool]> {
+        self.bitmaps.get_mut(frame).map(|vec| &mut vec[..])
+    }
+
     pub fn iter_pixels(
         &self,
         frame: usize,
@@ -75,6 +75,10 @@ impl ImageSequence {
                     (i % width, i / width, pixel)
                 }),
         )
+    }
+
+    pub fn iter_pixels_mut(&mut self, frame: usize) -> Option<impl Iterator<Item = &mut bool>> {
+        Some(self.get_frame_mut(frame)?.iter_mut())
     }
 
     pub fn get_bytes(&self, frame: usize) -> impl Iterator<Item = u8> + '_ {
