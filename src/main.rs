@@ -4,14 +4,16 @@ use eframe::egui::{
     Painter, PointerButton, Pos2, Rect, Rounding, ScrollArea, Sense, Stroke, TextEdit,
     TopBottomPanel, Ui, Vec2, Window,
 };
-use eframe::{App, Frame, NativeOptions};
-use image::imageops;
+use eframe::{App, NativeOptions};
+use image::codecs::gif::{GifEncoder, Repeat};
 use image::imageops::{BiLevel, FilterType};
 use image::io::Reader;
+use image::{imageops, Delay, Rgba, RgbaImage};
 use rfd::{FileDialog, MessageDialog};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs;
+use std::fs::File;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -87,7 +89,7 @@ enum CodeDisplay {
 }
 
 impl App for MainWindow {
-    fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         let frame_time = Duration::from_nanos(1000000000 / u64::from(self.project.frame_rate));
         if self.play && self.last_frame_delta.elapsed() >= frame_time {
             self.last_frame_delta = Instant::now();
@@ -477,6 +479,10 @@ impl MainWindow {
                         self.import_image();
                         ui.close_menu();
                     }
+                    if ui.button("Export animation").clicked() {
+                        self.export_animation();
+                        ui.close_menu();
+                    }
                 });
                 ui.menu_button("View", |ui| {
                     ui.add(
@@ -569,5 +575,60 @@ impl MainWindow {
             .for_each(|(&color, pixel)| {
                 *pixel = color != 0;
             });
+    }
+
+    fn export_animation(&self) {
+        let [width, height] = self.project.image_sequence.get_dimensions_pixels();
+        let color = [
+            self.display_color[0],
+            self.display_color[1],
+            self.display_color[2],
+            0xFF,
+        ];
+        let frames = self.project.image_sequence.iter_frames().map(|buffer| {
+            let image = RgbaImage::from_fn(
+                width.try_into().unwrap(),
+                height.try_into().unwrap(),
+                |x, y| {
+                    Rgba(
+                        if buffer[usize::try_from(y).unwrap() * width + usize::try_from(x).unwrap()]
+                        {
+                            color
+                        } else {
+                            [0x00, 0x00, 0x00, 0xFF]
+                        },
+                    )
+                },
+            );
+            image::Frame::from_parts(
+                image,
+                0,
+                0,
+                Delay::from_numer_denom_ms(1000, self.project.frame_rate.into()),
+            )
+        });
+
+        let Some(path) = FileDialog::new().add_filter("GIF file", &["gif"]).save_file() else {
+            return;
+        };
+
+        let Ok(file) = File::create(&path) else {
+            MessageDialog::new()
+                .set_description(&format!(
+                    "Could not open file {} for writing",
+                    path.display()
+                ))
+                .show();
+            return;
+        };
+
+        let mut encoder = GifEncoder::new(file);
+        encoder.set_repeat(Repeat::Infinite).unwrap();
+
+        if encoder.encode_frames(frames).is_err() {
+            MessageDialog::new()
+                .set_description(&format!("Could not encode GIF {}", path.display()))
+                .show();
+        }
     }
 }

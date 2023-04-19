@@ -36,53 +36,52 @@ impl ImageSequence {
         Vec2::new(width as f32, height as f32)
     }
 
-    pub fn get(&self, x: usize, y: usize, frame: usize) -> Option<&bool> {
+    pub fn get(&self, x: usize, y: usize, idx: usize) -> Option<&bool> {
         let [width_pixels, height_pixels] = self.get_dimensions_pixels();
         if (0..width_pixels).contains(&x) && (0..height_pixels).contains(&y) {
-            self.bitmaps.get(frame)?.get(y * width_pixels + x)
+            self.bitmaps.get(idx)?.get(y * width_pixels + x)
         } else {
             None
         }
     }
 
-    pub fn get_mut(&mut self, x: usize, y: usize, frame: usize) -> Option<&mut bool> {
+    pub fn get_mut(&mut self, x: usize, y: usize, idx: usize) -> Option<&mut bool> {
         let [width_pixels, height_pixels] = self.get_dimensions_pixels();
         if (0..width_pixels).contains(&x) && (0..height_pixels).contains(&y) {
-            self.bitmaps.get_mut(frame)?.get_mut(y * width_pixels + x)
+            self.bitmaps.get_mut(idx)?.get_mut(y * width_pixels + x)
         } else {
             None
         }
     }
 
-    pub fn get_frame(&self, frame: usize) -> Option<&[bool]> {
-        self.bitmaps.get(frame).map(|vec| vec.as_ref())
+    pub fn get_frame(&self, idx: usize) -> Option<&[bool]> {
+        self.bitmaps.get(idx).map(|vec| vec.as_ref())
     }
 
-    pub fn get_frame_mut(&mut self, frame: usize) -> Option<&mut [bool]> {
-        self.bitmaps.get_mut(frame).map(|vec| &mut vec[..])
+    pub fn get_frame_mut(&mut self, idx: usize) -> Option<&mut [bool]> {
+        self.bitmaps.get_mut(idx).map(|vec| &mut vec[..])
     }
 
     pub fn iter_pixels(
         &self,
-        frame: usize,
+        idx: usize,
     ) -> Option<impl Iterator<Item = (usize, usize, bool)> + '_> {
-        Some(
-            self.get_frame(frame)?
-                .iter()
-                .enumerate()
-                .map(|(i, &pixel)| {
-                    let width = usize::from(self.width) * 8;
-                    (i % width, i / width, pixel)
-                }),
-        )
+        Some(self.get_frame(idx)?.iter().enumerate().map(|(i, &pixel)| {
+            let width = usize::from(self.width) * 8;
+            (i % width, i / width, pixel)
+        }))
     }
 
-    pub fn iter_pixels_mut(&mut self, frame: usize) -> Option<impl Iterator<Item = &mut bool>> {
-        Some(self.get_frame_mut(frame)?.iter_mut())
+    pub fn iter_pixels_mut(&mut self, idx: usize) -> Option<impl Iterator<Item = &mut bool>> {
+        Some(self.get_frame_mut(idx)?.iter_mut())
     }
 
-    pub fn get_bytes(&self, frame: usize) -> impl Iterator<Item = u8> + '_ {
-        self.bitmaps[frame].chunks_exact(8).map(bits_to_byte)
+    pub fn iter_frames(&self) -> impl Iterator<Item = &[bool]> {
+        self.bitmaps.iter().map(|vector| vector.as_ref())
+    }
+
+    pub fn get_bytes(&self, idx: usize) -> impl Iterator<Item = u8> + '_ {
+        self.bitmaps[idx].chunks_exact(8).map(bits_to_byte)
     }
 
     pub fn add_frame(&mut self) {
@@ -171,7 +170,7 @@ impl ImageSequence {
         )
     }
 
-    pub fn slide(&mut self, frame: usize, direction: Direction, animation: SlideAnimation) {
+    pub fn slide(&mut self, idx: usize, direction: Direction, animation: SlideAnimation) {
         let dimension = match direction {
             Direction::Top | Direction::Bottom => self.height,
             Direction::Left | Direction::Right => self.width,
@@ -184,17 +183,17 @@ impl ImageSequence {
             Direction::Right => IVec::new(1, 0),
         };
 
-        (0..dimension - 1).for_each(|_| self.duplicate_frame(frame));
+        (0..dimension - 1).for_each(|_| self.duplicate_frame(idx));
 
         let [width, height] = [i16::from(self.width) * 8, i16::from(self.height) * 8];
-        let current_frame = self.get_frame(frame).unwrap().to_owned();
+        let current_frame = self.get_frame(idx).unwrap().to_owned();
         (0..dimension).rev().for_each(|i| {
             let scaled_vector = vector
                 * match animation {
                     SlideAnimation::SlideIn => i16::from(dimension) - i16::from(i) - 1,
                     SlideAnimation::SlideOut => i16::from(i),
                 };
-            let frame_number = frame + usize::from(i);
+            let frame_number = idx + usize::from(i);
             self.clear_frame(frame_number);
             (0..width * height)
                 .map(|i| IVec::new(i % width, i / width))
